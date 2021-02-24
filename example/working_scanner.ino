@@ -466,6 +466,8 @@ void setup() {
   Serial.begin(921600);
   pinMode(ledpin, OUTPUT);
   digitalWrite(ledpin, LOW);
+  Serial.println("");
+   Serial.println("Setup complete ...");
 }
 
 void loop() {
