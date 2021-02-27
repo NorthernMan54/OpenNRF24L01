@@ -31,7 +31,7 @@ int ledpin = LED;
 // uint64_t promisc_addr = 0x9270LL; // working
 // uint64_t promisc_addr = 0x4E2DLL; // working
 uint64_t promisc_addr = 0x92704E2DLL; // working
-uint8_t channel = 25;
+uint8_t channel = 40;
 uint64_t address;
 uint8_t payload[PAY_SIZE];
 uint8_t payload_size;
@@ -178,21 +178,22 @@ void scan()
         }
         ++i;
       }
-      if ((uint8_t)maxUsage > 0) {
-      Serial.print(" busy: ");
-      Serial.print((uint8_t)busiestChannel);
+      if ((uint8_t)maxUsage > 0)
+      {
+        Serial.print(" busy: ");
+        Serial.print((uint8_t)busiestChannel);
 #ifdef KBS250
-      Serial.print(" speed: 250Kbs count: ");
+        Serial.print(" speed: 250Kbs count: ");
 #endif
 #ifdef MBS1
-      Serial.print(" speed: 1Mbs count: ");
+        Serial.print(" speed: 1Mbs count: ");
 #endif
 #ifdef MBS2
-      Serial.print(" speed: 2Mbs count: ");
+        Serial.print(" speed: 2Mbs count: ");
 #endif
-      Serial.print((uint8_t)maxUsage);
-      Serial.print(" uptime: ");
-      Serial.println(millis() / 1000);
+        Serial.print((uint8_t)maxUsage);
+        Serial.print(" uptime: ");
+        Serial.println(millis() / 1000);
       }
       memset(values, 0, sizeof(values));
     }
@@ -597,35 +598,170 @@ void reset()
   radio.begin();
 }
 
+void radioReceiveSetup()
+{
+  Serial.println("Configuring receiver...");
+
+  radio.begin();
+  radio.setAutoAck(false);
+#ifdef KBS250
+  writeRegister(RF_SETUP, 0x21); // Disable PA, 250kbs rate, LNA enabled
+#endif
+#ifdef MBS1
+  writeRegister(RF_SETUP, 0x01); // Disable PA, 1M rate, LNA enabled
+#endif
+#ifdef MBS2
+  writeRegister(RF_SETUP, 0x09); // Disable PA, 2M rate, LNA enabled
+#endif
+  radio.setPayloadSize(PKT_SIZE);
+  radio.setChannel(channel);
+  // RF24 doesn't ever fully set this -- only certain bits of it
+  writeRegister(EN_RXADDR, 0x00);
+  // RF24 doesn't have a native way to change MAC...
+  // 0x00 is "invalid" according to the datasheet, but Travis Goodspeed found it works :)
+  writeRegister(SETUP_AW, 0x02);
+  uint64_t promisc_addr0 = 0x92704E2DLL; // working
+  radio.openReadingPipe(0, promisc_addr0);
+  radio.disableCRC();
+  radio.startListening();
+  radio.stopListening();
+  radio.printPrettyDetails();
+  radio.startListening();
+}
+
+void radioReceiveLoop()
+{
+  int x, offset;
+  uint8_t buf[PKT_SIZE];
+  unsigned long wait = 100;
+  uint8_t payload_length;
+  uint16_t crc, crc_given;
+  digitalWrite(ledpin, LOW);
+
+  uint8_t pipe;                            // initialize pipe data
+  if (radio.available(&pipe))
+  {
+    digitalWrite(ledpin, HIGH);
+    radio.read(&buf, sizeof(buf));
+
+    Serial.print(millis());
+    Serial.print(": ");
+    for (int j = 0; j < PKT_SIZE; j++)
+    {
+      Serial.print(buf[j], HEX);
+      Serial.print(" ");
+    }
+    Serial.println("");
+
+    // In promiscuous mode without a defined address prefix, we attempt to
+    // decode the payload as-is, and then shift it by one bit and try again
+    // if the first attempt did not pass the CRC check. The purpose of this
+    // is to minimize missed detections that happen if we were to use both
+    // 0xAA and 0x55 as the nonzero promiscuous mode address bytes.
+
+    /*
+
+    for (offset = 0; offset < 2; offset++)
+    {
+      // Shift the payload right by one bit if this is the second pass
+      if (offset == 1)
+      {
+        for (x = 31; x >= 0; x--)
+        {
+          if (x > 0)
+            buf[x] = buf[x - 1] << 7 | buf[x] >> 1;
+          else
+            buf[x] = buf[x] >> 1;
+        }
+      }
+      else
+      {
+        for (int j = 0; j < PKT_SIZE; j++)
+        {
+          Serial.print(buf[j], HEX);
+          Serial.print(" ");
+        }
+        Serial.println("");
+      }
+
+      // Read the payload length
+      payload_length = buf[5] >> 2;
+
+      // Check for a valid payload length, which is less than the usual 32 bytes
+      // because we need to account for the packet header, CRC, and part or all
+      // of the address bytes.
+      if (payload_length <= (PAY_SIZE - 9))
+      {
+        // Read the given CRC
+        crc_given = (buf[6 + payload_length] << 9) | ((buf[7 + payload_length]) << 1);
+        crc_given = (crc_given << 8) | (crc_given >> 8);
+        if (buf[8 + payload_length] & 0x80)
+          crc_given |= 0x100;
+
+        // Calculate the CRC
+        crc = 0xFFFF;
+        for (x = 0; x < 6 + payload_length; x++)
+          crc = crc_update(crc, buf[x], 8);
+        crc = crc_update(crc, buf[6 + payload_length] & 0x80, 1);
+        crc = (crc << 8) | (crc >> 8);
+
+        // Verify the CRC
+        if (crc == crc_given)
+        {
+          Serial.println("");
+          Serial.print("found packet /w valid crc... ");
+
+          if (payload_length > 0)
+          {
+            Serial.print("payload length is ");
+            Serial.println(payload_length);
+            // Write the address
+            address = 0;
+            for (int i = 0; i < 4; i++)
+            {
+              address += buf[i];
+              address <<= 8;
+            }
+            address += buf[4];
+
+            // Write the ESB payload to the output buffer
+            for (x = 0; x < payload_length + 3; x++)
+              payload[x] = ((buf[6 + x] << 1) & 0xFF) | (buf[7 + x] >> 7);
+            payload_size = payload_length;
+
+            print_payload_details();
+            return;
+          }
+          else
+          {
+            Serial.println("payload is empty. scanning...");
+            print_payload_details();
+          }
+        }
+        else
+        {
+          // Serial.println("found with out packet /w valid crc... ");
+        }
+      }
+    }
+    */
+  }
+}
+
 void setup()
 {
   Serial.begin(921600);
   pinMode(ledpin, OUTPUT);
   digitalWrite(ledpin, LOW);
-  Serial.println("");
-  Serial.println("Setup complete ...");
-  Serial.println();
-  int i = 0;
-  while (i < num_channels)
-  {
-    Serial.print(i >> 4, HEX);
-    ++i;
-  }
-  Serial.println();
-  i = 0;
-  while (i < num_channels)
-  {
-    Serial.print(i & 0xf, HEX);
-    ++i;
-  }
-  Serial.println();
+  radioReceiveSetup();
 }
 
 void loop()
 {
-  reset();
-  scan();
-  fingerprint();
+  //  reset();
+  radioReceiveLoop();
+  //  scan();
+  //  fingerprint();
   // launch_attack();
 }
 
