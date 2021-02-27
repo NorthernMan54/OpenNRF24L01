@@ -25,8 +25,8 @@ bool payload_encrypted = false;
 uint8_t payload_type = 0;
 uint16_t sequence;
 
-const uint8_t num_channels = 84;
-uint8_t values[num_channels];
+const uint8_t num_channels = 40;
+uint8_t values[num_channels+1];
 
 void print_payload_details()
 {
@@ -128,7 +128,7 @@ void scan()
   radio.disableCRC();
   radio.startListening();
   //radio.printDetails();
-  memset(values, 0, sizeof(values));
+  memset(values, 0, sizeof(values+1));
   while (1)
   {
     channel++;
@@ -136,12 +136,12 @@ void scan()
     {
       // Serial.print(".");
       digitalWrite(ledpin, HIGH);
-      channel = 2;
+      channel = 40;
       // Print out channel measurements, clamped to a single hex digit
-      int i = 0;
+      int i = channel;
       uint8_t busiestChannel = 0;
       uint8_t maxUsage = 0;
-      while (i < num_channels)
+      while (i <= num_channels)
       {
         if (values[i] >= 16)
         {
@@ -220,6 +220,15 @@ void scan()
               else
                 buf[x] = buf[x] >> 1;
             }
+          }
+          else
+          {
+            for (int j = 0; j < PKT_SIZE; j++)
+            {
+              Serial.print(buf[j], HEX);
+              Serial.print(" ");
+            }
+            Serial.println("");
           }
 
           // Read the payload length
