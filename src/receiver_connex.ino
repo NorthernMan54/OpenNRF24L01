@@ -1,5 +1,7 @@
 // scanner_connex
 
+#ifdef RECEIVER
+
 #include "Arduino.h"
 #include <SPI.h>
 #include "nRF24L01.h"
@@ -18,7 +20,17 @@ RF24 radio(CE, CSN);
 
 unsigned long startTime;
 int ledpin = LED;
-uint64_t promisc_addr = 0xAALL;
+
+/**  0xAALL;
+ *  852 A0 92 70 4E 2D 9A
+ *  886 A0 92 70 4E 2D 9E
+ *  978 A0 92 70 4E 2D 9C
+*  1007 A0 92 70 4E 2D 98
+*/
+// uint64_t promisc_addr = 0xAALL;
+// uint64_t promisc_addr = 0x9270LL; // working
+// uint64_t promisc_addr = 0x4E2DLL; // working
+uint64_t promisc_addr = 0x92704E2DLL; // working
 uint8_t channel = 25;
 uint64_t address;
 uint8_t payload[PAY_SIZE];
@@ -125,14 +137,14 @@ void scan()
   writeRegister(EN_RXADDR, 0x00);
   // RF24 doesn't have a native way to change MAC...
   // 0x00 is "invalid" according to the datasheet, but Travis Goodspeed found it works :)
-  writeRegister(SETUP_AW, 0x00);
+  writeRegister(SETUP_AW, 0x02);
   radio.openReadingPipe(0, promisc_addr);
   radio.disableCRC();
   radio.startListening();
   if (millis() / 1000 < 5)
   {
     radio.stopListening();
-    radio.printDetails();
+    radio.printPrettyDetails();
     radio.startListening();
   }
   // radio.printDetails();
@@ -155,7 +167,7 @@ void scan()
         {
           Serial.print("*");
         }
-        else
+        else if (values[i] > 0)
         {
           Serial.print(min((uint8_t)0xf, values[i]), HEX);
         }
@@ -166,6 +178,7 @@ void scan()
         }
         ++i;
       }
+      if ((uint8_t)maxUsage > 0) {
       Serial.print(" busy: ");
       Serial.print((uint8_t)busiestChannel);
 #ifdef KBS250
@@ -180,6 +193,7 @@ void scan()
       Serial.print((uint8_t)maxUsage);
       Serial.print(" uptime: ");
       Serial.println(millis() / 1000);
+      }
       memset(values, 0, sizeof(values));
     }
 
@@ -614,3 +628,5 @@ void loop()
   fingerprint();
   // launch_attack();
 }
+
+#endif
