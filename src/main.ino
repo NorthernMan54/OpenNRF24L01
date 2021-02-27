@@ -106,9 +106,17 @@ void scan()
 
   // the order of the following is VERY IMPORTANT
   radio.setAutoAck(false);
-  // radio.setPALevel(RF24_PA_MIN);
-  // radio.setDataRate(RF24_2MBPS);
+// radio.setPALevel(RF24_PA_MIN);
+// radio.setDataRate(RF24_2MBPS);
+#ifdef KBS250
+  writeRegister(RF_SETUP, 0x21); // Disable PA, 250kbs rate, LNA enabled
+#endif
+#ifdef MBS1
+  writeRegister(RF_SETUP, 0x01); // Disable PA, 1M rate, LNA enabled
+#endif
+#ifdef MBS2
   writeRegister(RF_SETUP, 0x09); // Disable PA, 2M rate, LNA enabled
+#endif
   radio.setPayloadSize(32);
   radio.setChannel(channel);
   // RF24 doesn't ever fully set this -- only certain bits of it
@@ -131,13 +139,39 @@ void scan()
       channel = 2;
       // Print out channel measurements, clamped to a single hex digit
       int i = 0;
+      uint8_t busiestChannel = 0;
+      uint8_t maxUsage = 0;
       while (i < num_channels)
       {
-        Serial.print(min((uint8_t)0xf, values[i]), HEX);
+        if (values[i] >= 16)
+        {
+          Serial.print("*");
+        }
+        else
+        {
+          Serial.print(min((uint8_t)0xf, values[i]), HEX);
+        }
+        if (values[i] > maxUsage)
+        {
+          busiestChannel = i;
+          maxUsage = values[i];
+        }
         ++i;
       }
-      Serial.println("");
-
+      Serial.print(" busy: ");
+      Serial.print((uint8_t)busiestChannel);
+#ifdef KBS250
+      Serial.print(" speed: 250Kbs count: ");
+#endif
+#ifdef MBS1
+      Serial.print(" speed: 1Mbs count: ");
+#endif
+#ifdef MBS2
+      Serial.print(" speed: 2Mbs count: ");
+#endif
+      Serial.print((uint8_t)maxUsage);
+      Serial.print(" uptime: ");
+      Serial.println(millis() / 1000);
       memset(values, 0, sizeof(values));
     }
 
