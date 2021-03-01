@@ -130,7 +130,9 @@ A0 92 70 4E 2D 98 D6 77 D1 01 00 00 7D 09 01 00 12 95 3F B9 E5 F8 AA 55 50 49 38
 
 Paydirt 250kbps
 
-## Step 3 - Take apart the signal
+## Step 3 - Taking the signal apart
+
+These are my initial thoughts
 
 ```
 A0 92 70 4E 2D 98 D6 77 D1 01 00 00 7D 09 01 00 12 95 3F B9 E5 F8 AA 55 50 49 38 27 16 CE 74 AB 3F 28 00 00 00 
@@ -148,9 +150,53 @@ A0 92 70 4E 2D 98 D6 77 D1 01 00 00 7D 09 01 00 12 95 3F B9 E5 F8 AA 55 50 49 38
  * ???                  - aka 01 00
  * crc                  - Guessing 2 byte crc value
 
- ## Step 4 - Determine crc
+ ## Step 4 - Is is an Enhanced ShockBurst message ?
 
- Tried a payload length of 10 bytes
+ Looking at this portion of the message
+
+ ```
+ 2D 98 D6
+ 2D 9E D6
+ 2D 9C D6
+ 2D 9A D6
+ ```
+
+Is the 98/98/9C a PID in the ESB Packet Control Field? Maybe, spec says this.
+
+```
+Packet Control Field
+
+Payload length 6bit
+PID 2bit
+NO_ACK 1bit
+```
+
+```
+              2    D    9    8    D    6
+2D 98 D6 --> 10 1101 1001 1000 1101 0110
+2D 9A D6 --> 10 1101 1001 1010 1101 0110
+2D 9C D6 --> 10 1101 1001 1100 1101 0110
+2D 9E D6 --> 10 1101 1001 1110 1101 0110
+                                                                        
+                      A    0    9    2    7    0    4    E    2    D    9    8    D    6
+A092704E2D98D6 --> 1010 0000 1001 0010 0111 0000 0100 1110 0010 1101 1001 1000 1101 0110
+
+If this is an ESB Message, and that is the PID, then the address field is 6 bits to the left
+                                                                        | length   | PID|Sync|
+A092704E2D98D6 --> 1010 000|0 1001 001|0 0111 000|0 0100 111|0 0010 110 | 1 1001 1 | 00 | 0 |1101 0110
+
+address 50 49 38 27 16
+```
+
+length - This field is only used if the Dynamic Payload Length function is enabled. So am thinking this can be ignored.
+
+sync/ack - Setting the flag high tells the receiver that the packet is not to be auto acknowledged.
+
+Am thinking that this is a enhanced shockburst with a fixed message size of 10 bytes
+
+ ## Step 5 - Putting it together does it all work together?
+
+Tried a hard coding a payload length of 10 bytes into the scanner code to look at the crc calc.
 
 ```
 p: 1 50 49 38 27 16 CF 6B 3B B4 00 80 00 41 04 80 80 25 4B 1D FA DA D8 55 2A A8 24 9C 13 8B 67 3A 55 3F 28 00 00 00 
@@ -176,6 +222,58 @@ p: 1 50 49 38 27 16 CD 6B 3B B4 00 80 00 41 04 80 80 0D E8 86 DB AB E8 55 2A A8 
 found packet /w valid crc... payload length is 10
 ch: 40 s: 10 a: 50 49 38 27 16  p: D6 77 68 1 0 0 82 9 1 0 
 ```
+
+Looks like it works
+
+## Temperature setting change
+
+Address set to 0x0092704e2d and length to 4 bytes
+
+```
+Powered off base board heaters
+
+282840: 9E D6 77 7C 1 0 0 AA 9 1 0 CA C2 BD 56 BF AE 1B 95 7F EB 6F DA ED 1E 35 1F 2D 5D AD 75 7F 0 0 0 0 0
+283840: 98 D6 77 7D 1 0 0 AA 9 1 0 7C E5 DC D5 EE AB 53 5B AA D5 D9 EB DE F7 EA 52 A5 4D 96 51 54 0 0 0 0 0
+284840: 9A D6 77 7E 1 0 0 AA 9 1 0 14 23 FF F7 7F 5E B7 FB 39 56 6D 9E DD DA DE 6B BA 99 FB 7D 5D 0 0 0 0 0
+285840: 9C D6 77 7F 1 0 0 AA 9 1 0 A2 4 EA 83 4A D0 24 AC 2A 86 19 65 32 A4 56 C5 6C AA C4 B5 16 0 0 0 0 0
+286840: 9E D6 77 80 1 0 0 AA 9 1 0 96 F8 FE 9F 78 DC 5A DD DA 7A D7 D9 B9 BF 6D BF FE FB DD 7F FF 0 0 0 0 0
+287840: 98 D6 77 81 1 0 0 AA 9 1 0 20 DF D5 AB 5E E5 5C 6D 6E D7 95 AF D5 90 91 79 6A 8A D5 5B 57 0 0 0 0 0
+288841: 9A D6 77 82 1 0 0 AA 9 1 0 48 19 DA 9B 6E D6 D5 FB 7B 75 6F BB 3F 55 EF 76 DF B7 AA AE EA 0 0 0 0 0
+289841: 9C D6 77 83 1 0 0 AA 9 1 0 FE 3E DA AD 5A D7 6D 55 5B 9A 85 28 2A 59 29 53 37 94 50 D4 B7 0 0 0 0 0
+290841: 9E D6 77 84 1 0 0 AA 9 1 0 99 95 D7 EF 2B 56 AA AB 7A FA BA B6 B7 EF 5E AA DB 72 9B DE FD 0 0 0 0 0
+291841: 98 D6 77 85 1 0 0 AA 9 1 0 2F B2 FF 5B B7 6D B4 EF 76 D7 B6 BD 6F DD CD AE FE DD BE FE FA 0 0 0 0 0
+```
+Thermostat appears to resend setting change 10 times over 10ms
+
+
+
+```
+Powered back on again
+
+345453: 9A D6 77 86 1 0 0 B4 9 1 0 FE 89 C7 55 73 B8 55 2A A8 24 9C 13 8B 66 2A F4 CD 73 F7 FE BB 0 0 0 0 0
+345544: 9A D6 77 86 1 0 0 B4 9 1 0 FE 89 25 3B 76 D8 1 2A A8 24 9C 13 8B 66 A2 64 4D BD EA DD 6E 0 0 0 0 0
+345549: 9A D6 77 86 1 0 0 B4 9 1 0 FE 89 3D FF 7D F8 AA 55 50 49 38 27 16 CE 74 AB 8D 6A BA AB BD 0 0 0 0 0
+345554: 9A D6 77 86 1 0 0 B4 9 1 0 FE 89 3E B9 77 78 AA 55 50 49 38 27 16 CF 64 8A 93 BF B6 F5 2B 0 0 0 0 0
+345558: 9A D6 77 86 1 0 0 B4 9 1 0 FE 89 2F B9 6A B8 55 2A A8 24 9C 13 8B 66 2A 74 CA AF AF FF AF 0 0 0 0 0
+345563: 9A D6 77 86 1 0 0 B4 9 1 0 FE 89 34 D7 B5 D8 55 2A A8 24 9C 13 8B 66 A2 64 4D B7 DF EB EA 0 0 0 0 0
+345568: 9A D6 77 86 1 0 0 B4 9 1 0 FE 89 3A EF B6 B8 55 2A A8 24 9C 13 8B 67 3A 55 CB D5 FC F7 AE 0 0 0 0 0
+345573: 9A D6 77 86 1 0 0 B4 9 1 0 FE 89 3D 39 7E B8 AA 55 50 49 38 27 16 CF 64 8A 8E EA D5 42 90 0 0 0 0 0
+345577: 9A D6 77 86 1 0 0 B4 9 1 0 FE 89 2B BD F7 BC 55 2A A8 24 9C 13 8B 66 2A 74 CE EF DB 9F FD 0 0 0 0 0
+345582: 9A D6 77 86 1 0 0 B4 9 1 0 FE 89 3F AE 6E 98 55 2A A8 24 9C 13 8B 66 A2 64 4E FF DD 77 54 0 0 0 0 0
+345587: 9A D6 77 86 1 0 0 B4 9 1 0 FE 89 2F FB DE B8 AA 55 50 49 38 27 16 CE 74 AB 89 CD 75 FD 6A 0 0 0 0 0
+345592: 9A D6 77 86 1 0 0 B4 9 1 0 FE 89 2B 7D EA B8 AA 55 50 49 38 27 16 CF 64 8A 8C B3 F7 BF 9F 0 0 0 0 0
+345596: 9A D6 77 86 1 0 0 B4 9 1 0 FE 89 2B 5B 5B 38 AA 55 50 49 38 27 16 CC 54 E9 87 FD 7F ED EF 0 0 0 0 0
+345601: 9A D6 77 86 1 0 0 B4 9 1 0 FE 89 3F 6E 95 B8 AA 55 50 49 38 27 16 CD 44 C8 9A FD 75 F7 B6 0 0 0 0 0
+
+346453: 9C D6 77 87 1 0 0 B4 9 1 0 48 AE DF FD 7D 98 AA 2A A8 25 BC 13 8F 47 3A 55 C9 D7 5F FF AD 0 0 0 0 0
+346574: 9E D6 77 87 1 0 0 B4 9 1 0 E8 1D 35 FD 7A BC 0 15 54 12 4E 9 C5 B3 D9 22 A7 B7 6D 3F 76 0 0 0 0 0
+346578: 9E D6 77 87 1 0 0 B4 9 1 0 E8 1D 3F 6F EE F8 55 2A A8 24 9C 13 8B 66 2A 74 CF 77 35 AF 66 0 0 0 0 0
+```
+Looking at these packets in detail, their appears to also be two packets per row `AA 55 50 49 38 27 16 CF 64 8A`
+
+## Thermostat to Baseboard pairing
+
+Inital data collection offered no clues
 
 ## Compiler Directives
 
