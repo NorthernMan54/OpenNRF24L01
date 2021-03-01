@@ -148,7 +148,34 @@ A0 92 70 4E 2D 98 D6 77 D1 01 00 00 7D 09 01 00 12 95 3F B9 E5 F8 AA 55 50 49 38
  * ???                  - aka 01 00
  * crc                  - Guessing 2 byte crc value
 
- ## Step 4
+ ## Step 4 - Determine crc
+
+ Tried a payload length of 10 bytes
+
+```
+p: 1 50 49 38 27 16 CF 6B 3B B4 00 80 00 41 04 80 80 25 4B 1D FA DA D8 55 2A A8 24 9C 13 8B 67 3A 55 3F 28 00 00 00 
+found packet /w valid crc... payload length is 10
+ch: 40 s: 10 a: 50 49 38 27 16  p: D6 77 68 1 0 0 82 9 1 0 
+
+starting scan...
+2 busy: 40 speed: 250Kbs count: 2 uptime: 92
+p: 1 50 49 38 27 16 CF 6B 3B B4 00 80 00 41 04 80 80 25 4B 1A FB D5 DE 2A 95 54 12 4E 09 C5 B3 15 3A 3F 28 00 00 00 
+found packet /w valid crc... payload length is 10
+ch: 40 s: 10 a: 50 49 38 27 16  p: D6 77 68 1 0 0 82 9 1 0 
+
+starting scan...
+1 busy: 40 speed: 250Kbs count: 1 uptime: 92
+p: 1 12 A9 75 A9 5B AB B9 5D 37 CD 2B 59 E9 9C DF 45 55 CD E6 B5 FD B6 C9 6D 8F AB 6B 31 AB AB 55 6D 3F 28 00 00 00 
+p: 1 50 49 38 27 16 CD 6B 3B B4 00 80 00 41 04 80 80 0D E8 95 4D 1A 5E 00 0A AA 09 27 04 E2 D9 8A 9D 3F 28 00 00 00 
+found packet /w valid crc... payload length is 10
+ch: 40 s: 10 a: 50 49 38 27 16  p: D6 77 68 1 0 0 82 9 1 0 
+
+starting scan...
+2 busy: 40 speed: 250Kbs count: 2 uptime: 92
+p: 1 50 49 38 27 16 CD 6B 3B B4 00 80 00 41 04 80 80 0D E8 86 DB AB E8 55 2A A8 24 9C 13 8B 67 92 66 3F 28 00 00 00 
+found packet /w valid crc... payload length is 10
+ch: 40 s: 10 a: 50 49 38 27 16  p: D6 77 68 1 0 0 82 9 1 0 
+```
 
 ## Compiler Directives
 
