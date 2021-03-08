@@ -148,7 +148,7 @@ void radioReceiveSetup()
   writeRegister(SETUP_AW, 0x02);
   uint64_t promisc_addr0 = 0xAALL;
   uint64_t promisc_addr1 = 0x92704E2DLL; // working
-  radio.openReadingPipe(0, promisc_addr0);
+//  radio.openReadingPipe(0, promisc_addr0);
   radio.openReadingPipe(1, promisc_addr1);
   radio.disableCRC();
   radio.startListening();

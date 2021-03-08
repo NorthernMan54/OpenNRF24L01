@@ -27,10 +27,20 @@ int ledpin = LED;
  *  978 A0 92 70 4E 2D 9C
 *  1007 A0 92 70 4E 2D 98
 */
-// uint64_t promisc_addr = 0xAALL;
+
+#define STATIC true
+#ifdef STATIC
+#define PAYLOAD 10
+#endif
+// uint64_t promisc_addr = 0xAALL; // signal sniffer
 // uint64_t promisc_addr = 0x9270LL; // working
 // uint64_t promisc_addr = 0x4E2DLL; // working
-uint64_t promisc_addr = 0x92704E2DLL; // working
+// uint64_t promisc_addr = 0xA092704E2DLL; // Length 0, crc 2 no, crc 1 no
+uint64_t promisc_addr = 0x5049382716LL;  // Length 0, crc 2 no, crc 1 no
+// uint64_t promisc_addr = 0x4124E09C5BLL;  // Length 12-15, crc 2 no, crc 1 no
+// uint64_t promisc_addr = 0x8249C138B6LL;  // Length 24 to 26 missing packets, crc 2 no, crc 1 no
+// uint64_t promisc_addr = 0x049382716CLL;  // Length 0, crc 2 no, crc 1 no
+// uint64_t promisc_addr = 0x092704E2D9LL;  // Length 0, crc 2 no, crc 1 maybe
 uint8_t channel = 25;
 uint64_t address;
 uint8_t payload[PAY_SIZE];
@@ -49,7 +59,7 @@ void print_payload_details()
   Serial.print(" s: ");
   Serial.print(payload_size);
   Serial.print(" a: ");
-  for (int j = 0; j < 5; j++)
+  for (int j = 4; j >= 0; j--)
   {
     Serial.print((uint8_t)(address >> (8 * j) & 0xff), HEX);
     Serial.print(" ");
@@ -57,6 +67,10 @@ void print_payload_details()
   Serial.print(" p: ");
   for (int j = 0; j < payload_size; j++)
   {
+    if (payload[j] < 16)
+    {
+      Serial.print("0");
+    }
     Serial.print(payload[j], HEX);
     Serial.print(" ");
   }
@@ -131,17 +145,22 @@ void scan()
 #ifdef MBS2
   writeRegister(RF_SETUP, 0x09); // Disable PA, 2M rate, LNA enabled
 #endif
-  radio.setPayloadSize(32);
+#ifdef STATIC
+  radio.setPayloadSize(PAYLOAD);
+#else
+  radio.enableDynamicPayloads();
+#endif
   radio.setChannel(channel);
   // RF24 doesn't ever fully set this -- only certain bits of it
   writeRegister(EN_RXADDR, 0x00);
   // RF24 doesn't have a native way to change MAC...
   // 0x00 is "invalid" according to the datasheet, but Travis Goodspeed found it works :)
-  writeRegister(SETUP_AW, 0x02);
+  writeRegister(SETUP_AW, 0x03);
+  radio.setCRCLength((rf24_crclength_e)2);
   radio.openReadingPipe(0, promisc_addr);
-  radio.disableCRC();
+  radio.setAutoAck(0, true);
   radio.startListening();
-  if (millis() / 1000 < 5)
+  if (millis() / 1000 < 10)
   {
     radio.stopListening();
     radio.printPrettyDetails();
@@ -178,21 +197,22 @@ void scan()
         }
         ++i;
       }
-      if ((uint8_t)maxUsage > 0) {
-      Serial.print(" busy: ");
-      Serial.print((uint8_t)busiestChannel);
+      if ((uint8_t)maxUsage > 0)
+      {
+        Serial.print(" busy: ");
+        Serial.print((uint8_t)busiestChannel);
 #ifdef KBS250
-      Serial.print(" speed: 250Kbs count: ");
+        Serial.print(" speed: 250Kbs count: ");
 #endif
 #ifdef MBS1
-      Serial.print(" speed: 1Mbs count: ");
+        Serial.print(" speed: 1Mbs count: ");
 #endif
 #ifdef MBS2
-      Serial.print(" speed: 2Mbs count: ");
+        Serial.print(" speed: 2Mbs count: ");
 #endif
-      Serial.print((uint8_t)maxUsage);
-      Serial.print(" uptime: ");
-      Serial.println(millis() / 1000);
+        Serial.print((uint8_t)maxUsage);
+        Serial.print(" uptime: ");
+        Serial.println(millis() / 1000);
       }
       memset(values, 0, sizeof(values));
     }
@@ -222,7 +242,13 @@ void scan()
       if (radio.available())
       {
         ++values[channel];
-        radio.read(&buf, sizeof(buf));
+#ifdef STATIC
+        payload_length = radio.getPayloadSize();
+#else
+        payload_length = radio.getDynamicPayloadSize();
+#endif
+
+        radio.read(&buf, payload_length);
 
         // In promiscuous mode without a defined address prefix, we attempt to
         // decode the payload as-is, and then shift it by one bit and try again
@@ -245,8 +271,15 @@ void scan()
           }
           else
           {
-            for (int j = 0; j < PKT_SIZE; j++)
+            Serial.print("length: ");
+            Serial.print(payload_length);
+            Serial.print(" - ");
+            for (int j = 0; j < payload_length; j++)
             {
+              if (buf[j] < 16)
+              {
+                Serial.print("0");
+              }
               Serial.print(buf[j], HEX);
               Serial.print(" ");
             }
@@ -254,7 +287,8 @@ void scan()
           }
 
           // Read the payload length
-          payload_length = buf[5] >> 2;
+          //payload_length = buf[5] >> 2;
+          payload_length = 10;
 
           // Check for a valid payload length, which is less than the usual 32 bytes
           // because we need to account for the packet header, CRC, and part or all
@@ -602,6 +636,7 @@ void setup()
   Serial.begin(921600);
   pinMode(ledpin, OUTPUT);
   digitalWrite(ledpin, LOW);
+  delay(1000);
   Serial.println("");
   Serial.println("Setup complete ...");
   Serial.println();

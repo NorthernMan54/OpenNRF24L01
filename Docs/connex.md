@@ -178,12 +178,15 @@ NO_ACK 1bit
 2D 9C D6 --> 10 1101 1001 1100 1101 0110
 2D 9E D6 --> 10 1101 1001 1110 1101 0110
                                                                         
-                      A    0    9    2    7    0    4    E    2    D    9    8    D    6
+                      A    0|   9    2|   7    0|   4    E|   2    D|   9    8|   D    6
 A092704E2D98D6 --> 1010 0000 1001 0010 0111 0000 0100 1110 0010 1101 1001 1000 1101 0110
 
 If this is an ESB Message, and that is the PID, then the address field is 6 bits to the left
                                                                         | length   | PID|Sync|
 A092704E2D98D6 --> 1010 000|0 1001 001|0 0111 000|0 0100 111|0 0010 110 | 1 1001 1 | 00 | 0 |1101 0110
+
+0100 0001 0010 0100 1110 0000 1001 1100 0101 1011
+   4    1    2    4    E    0    9    C    5    B
 
 address 50 49 38 27 16
 ```
@@ -225,9 +228,76 @@ ch: 40 s: 10 a: 50 49 38 27 16  p: D6 77 68 1 0 0 82 9 1 0
 
 Looks like it works
 
+## Step 6 - Finalize receive testing
+
+Data rate 250Kbs
+Channel 40
+Address 50 49 38 27 16
+16 bit crc enabled
+static payload length of 10 bytes
+auto ack - enhanced shock burst
+
+And success
+
+```
+T: nrf24 channel: 40 length: 10 pipe: 0 payload: D6 77 9D 01 00 00 82 09 01 00 
+N: Subject: /NRF24toMQTT
+N: Received json : {"channel":40,"length":10,"pipe":0,"payload":["d6","77","9d","01","00","00","82","09","01","00"]}
+T: jsonPublishing
+```
+
+## Step 7 - Transmit Testing
+
+Success
+
+```
+N: Received json : {"write":"D677B5010000B4090100","status":true}
+T: MQTTtoNRF24 home/nrf24/commands/MQTTtoNRF24
+SPI Frequency		= 10 Mhz
+Channel			= 40 (~ 2440 MHz)
+RF Data Rate		= 250 KBPS
+RF Power Amplifier	= PA_MIN
+RF Low Noise Amplifier	= Enabled
+CRC Length		= 16 bits
+Address Length		= 5 bytes
+Static Payload Length	= 10 bytes
+Auto Retry Delay	= 1500 microseconds
+Auto Retry Attempts	= 15 maximum
+Packets lost on
+    current channel	= 1
+Retry attempts made for
+    last transmission	= 8
+Multicast		= Disabled
+Custom ACK Payload	= Disabled
+Dynamic Payloads	= Disabled
+Auto Acknowledgment	= Enabled
+Primary Mode		= TX
+TX address		= 0x5049382716
+pipe 0 ( open ) bound	= 0x5049382716
+pipe 1 (closed) bound	= 0x65646f4e31
+pipe 2 (closed) bound	= 0xc3
+pipe 3 (closed) bound	= 0xc4
+pipe 4 (closed) bound	= 0xc5
+pipe 5 (closed) bound	= 0xc6
+N: Subject: /NRF24toMQTT
+N: Received json : {"channel":40,"address":344825800470,"writeAddress":344825800470,"addressWidth":5,"payloadSize":10,"crc":true,"dynamic":false,"autoAck":true}
+T: jsonPublishing
+N: NRF24 write channel: 40, length: 10, sent: true, "D677B5010000B4090100"
+D6 77 B5 01 00 00 B4 09 01 00 
+N: Subject: /NRF24toMQTT
+N: Received json : {"write":"D677B5010000B4090100","status":true}
+T: jsonPublishing
+T: nrf24 channel: 40 length: 10 pipe: 0 payload: D6 77 B5 01 00 00 B4 09 01 00 
+T: Post nrf24loop: 252340
+T: nrf24 channel: 40 length: 10 pipe: 0 payload: D6 77 B5 01 00 00 B4 09 01 00 
+T: Post nrf24loop: 252340
+T: nrf24 channel: 40 length: 10 pipe: 0 payload: D6 77 B5 01 00 00 B4 09 01 00 
+```
+
+
 ## Temperature setting change
 
-Address set to 0x0092704e2d and length to 4 bytes
+Address set to 0x0092704e2d and address width to 4 bytes
 
 ```
 Powered off base board heaters

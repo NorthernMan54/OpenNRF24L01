@@ -1,5 +1,7 @@
 // scanner_connex
 
+#ifdef CHANNEL_SCANNER
+
 #include "Arduino.h"
 #include <SPI.h>
 #include "nRF24L01.h"
@@ -28,7 +30,7 @@ bool payload_encrypted = false;
 uint8_t payload_type = 0;
 uint16_t sequence;
 
-const uint8_t num_channels = 40;
+const uint8_t num_channels = 85;
 uint8_t values[num_channels + 1];
 
 void print_payload_details()
@@ -128,7 +130,7 @@ void scan()
   // 0x00 is "invalid" according to the datasheet, but Travis Goodspeed found it works :)
   writeRegister(SETUP_AW, 0x00);
   radio.openReadingPipe(0, promisc_addr0);
-  radio.openReadingPipe(1, promisc_addr1);
+  //  radio.openReadingPipe(1, promisc_addr1);
   radio.disableCRC();
   radio.startListening();
   if (millis() / 1000 < 5)
@@ -146,7 +148,7 @@ void scan()
     {
       // Serial.print(".");
       digitalWrite(ledpin, HIGH);
-      channel = 40;
+      channel = 2;
       // Print out channel measurements, clamped to a single hex digit
       int i = channel;
       uint8_t busiestChannel = 0;
@@ -207,7 +209,7 @@ void scan()
     startTime = millis();
     while (millis() - startTime < wait)
     {
-        uint8_t pipe; // initialize pipe data
+      uint8_t pipe; // initialize pipe data
       if (radio.available(&pipe))
       {
         ++values[channel];
@@ -234,6 +236,7 @@ void scan()
           }
           else
           {
+            /*
             Serial.print("p: ");
             Serial.print(pipe);
             Serial.print(" ");
@@ -246,14 +249,15 @@ void scan()
               Serial.print(" ");
             }
             Serial.println("");
+            */
           }
           // AA AA AA AA AA aa       SS ZZ TT TT             CC CC
-          // A0 92 70 4E 2D 9C D6 77 E7 01 00 00 82 09 01 00 CE 66 35 FA 72 F8 AA 2A A8 24 9C 13 8B 66 A2 64 3F 28 0 0 0 
-          // 0  1  2  3  4  5  6  7  8  9  10 11 12 13 14 15 16 17 
+          // A0 92 70 4E 2D 9C D6 77 E7 01 00 00 82 09 01 00 CE 66 35 FA 72 F8 AA 2A A8 24 9C 13 8B 66 A2 64 3F 28 0 0 0
+          // 0  1  2  3  4  5  6  7  8  9  10 11 12 13 14 15 16 17
 
           // Read the payload length
           payload_length = buf[5] >> 2;
-          payload_length = 10;
+          //          payload_length = 10;
 
           // Check for a valid payload length, which is less than the usual 32 bytes
           // because we need to account for the packet header, CRC, and part or all
@@ -283,18 +287,19 @@ void scan()
               {
                 Serial.print("payload length is ");
                 Serial.println(payload_length);
+
                 // Write the address
-                 Serial.print(" address is ");
+                // Serial.print(" address is ");
                 address = 0;
                 for (int i = 0; i < 4; i++)
                 {
-                Serial.print(buf[i], HEX);
-                Serial.print(" ");
+                  // Serial.print(buf[i], HEX);
+                  // Serial.print(" ");
                   address += buf[i];
                   address <<= 8;
                 }
-                Serial.print(buf[4], HEX);
-                Serial.println(" ");
+                // Serial.print(buf[4], HEX);
+                // Serial.println(" ");
                 address += buf[4];
 
                 // Write the ESB payload to the output buffer
@@ -638,3 +643,4 @@ void loop()
   fingerprint();
   // launch_attack();
 }
+#endif
